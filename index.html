@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luce Comune — CER Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --bg:#080c0a; --bg2:#0f1512; --bg3:#161e1a; --surface:#1c2620;
+  --border:#243028; --border2:#2e3d36;
+  --green:#00e87a; --green2:#00c464; --green3:#007a42; --green-dim:#00391f;
+  --amber:#f5a623; --amber-dim:rgba(245,166,35,0.12);
+  --blue:#4d9fff; --red:#ff4d6a;
+  --text:#e8f0ec; --text2:#7a9688; --text3:#3d5448;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Cabinet Grotesk',sans-serif;
+  --radius:12px; --radius-sm:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.875rem 1.5rem;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  flex-shrink:0; z-index:100;
+}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;letter-spacing:-.02em;}
+.logo-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2.5s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,232,122,.5)}50%{box-shadow:0 0 0 8px rgba(0,232,122,0)}}
+.topbar-center{display:flex;gap:.25rem;}
+.tab-btn{
+  padding:.4rem 1rem;border-radius:100px;font-size:.78rem;font-weight:600;
+  background:transparent;color:var(--text2);border:1px solid transparent;
+  cursor:pointer;transition:all .2s;letter-spacing:.02em;
+}
+.tab-btn:hover{color:var(--text);background:var(--surface);}
+.tab-btn.active{background:var(--green-dim);color:var(--green);border-color:var(--green3);}
+.topbar-right{display:flex;align-items:center;gap:.75rem;}
+.cer-badge{
+  font-family:var(--mono);font-size:.62rem;padding:.3rem .75rem;
+  border-radius:100px;background:var(--green-dim);color:var(--green);
+  border:1px solid var(--green3);display:flex;align-items:center;gap:6px;
+}
+.cer-badge::before{content:'';width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+.upload-btn-top{
+  padding:.4rem 1rem;border-radius:100px;font-size:.78rem;font-weight:700;
+  background:var(--green);color:var(--bg);border:none;cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+}
+.upload-btn-top:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(0,232,122,.4);}
+
+/* ── LAYOUT ── */
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:220px;flex-shrink:0;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto;
+}
+.sidebar-section{padding:.75rem .875rem;border-bottom:1px solid var(--border);}
+.sidebar-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;}
+.nav-item{
+  display:flex;align-items:center;gap:.625rem;padding:.5rem .625rem;
+  border-radius:var(--radius-sm);cursor:pointer;transition:all .2s;
+  font-size:.82rem;font-weight:500;color:var(--text2);margin-bottom:.15rem;
+}
+.nav-item:hover{background:var(--surface);color:var(--text);}
+.nav-item.active{background:var(--green-dim);color:var(--green);}
+.nav-icon{width:16px;height:16px;font-size:.85rem;flex-shrink:0;}
+
+.pod-list{display:flex;flex-direction:column;gap:.25rem;}
+.pod-item{
+  padding:.4rem .625rem;border-radius:6px;
+  font-family:var(--mono);font-size:.65rem;color:var(--text3);
+  cursor:pointer;transition:all .2s;display:flex;justify-content:space-between;align-items:center;
+}
+.pod-item:hover{background:var(--surface);color:var(--text2);}
+.pod-item.active{color:var(--green);}
+.pod-kwh{font-size:.6rem;}
+
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+
+/* ── UPLOAD SCREEN ── */
+#screen-upload{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:2rem;
+}
+.upload-area{
+  max-width:620px;width:100%;text-align:center;
+}
+.upload-zone{
+  border:2px dashed var(--border2);border-radius:20px;
+  padding:3.5rem 2rem;margin-bottom:1.5rem;
+  cursor:pointer;transition:all .3s;position:relative;
+  background:var(--bg2);
+}
+.upload-zone:hover,.upload-zone.dragover{
+  border-color:var(--green);background:var(--green-dim);
+}
+.upload-icon{font-size:3rem;margin-bottom:1rem;opacity:.6;}
+.upload-title{font-size:1.35rem;font-weight:800;margin-bottom:.5rem;}
+.upload-sub{font-size:.875rem;color:var(--text2);line-height:1.6;margin-bottom:1.25rem;}
+.upload-formats{
+  display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;
+}
+.fmt-tag{
+  font-family:var(--mono);font-size:.62rem;padding:3px 8px;border-radius:4px;
+  background:var(--surface);color:var(--text3);border:1px solid var(--border);
+}
+#fileInput{display:none;}
+.or-divider{font-size:.8rem;color:var(--text3);margin:.75rem 0;}
+.demo-btn{
+  padding:.625rem 1.5rem;border-radius:100px;
+  background:var(--surface);color:var(--text2);
+  border:1px solid var(--border2);font-family:var(--sans);
+  font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;
+}
+.demo-btn:hover{border-color:var(--green);color:var(--green);}
+
+.upload-info{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;
+  text-align:left;
+}
+.ui-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1rem;
+}
+.ui-card-icon{font-size:1.25rem;margin-bottom:.5rem;}
+.ui-card-title{font-size:.82rem;font-weight:700;margin-bottom:.25rem;}
+.ui-card-body{font-size:.75rem;color:var(--text2);line-height:1.5;}
+
+/* ── PROCESSING ── */
+#screen-processing{
+  flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.5rem;
+}
+.proc-title{font-size:1.25rem;font-weight:800;}
+.proc-sub{font-size:.875rem;color:var(--text2);}
+.proc-steps{display:flex;flex-direction:column;gap:.75rem;width:100%;max-width:400px;}
+.proc-step{
+  display:flex;align-items:center;gap:.875rem;padding:.75rem 1rem;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:.85rem;
+}
+.proc-step-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0;}
+.proc-step.done .proc-step-icon{background:var(--green);color:var(--bg);}
+.proc-step.running .proc-step-icon{background:var(--green-dim);border:2px solid var(--green);animation:spin .8s linear infinite;}
+.proc-step.pending .proc-step-icon{background:var(--surface);color:var(--text3);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-bar-wrap{width:100%;max-width:400px;height:4px;background:var(--surface);border-radius:2px;}
+.proc-bar{height:100%;background:var(--green);border-radius:2px;transition:width .3s ease;}
+
+/* ── DASHBOARD ── */
+#screen-dashboard{flex:1;display:none;flex-direction:column;overflow:hidden;}
+#screen-dashboard.active{display:flex;}
+
+/* KPI row */
+.kpi-row{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.kpi{
+  padding:1rem 1.25rem;border-right:1px solid var(--border);
+}
+.kpi:last-child{border-right:none;}
+.kpi-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.3rem;}
+.kpi-val{font-size:1.5rem;font-weight:800;color:var(--text);line-height:1;}
+.kpi-val.g{color:var(--green);}
+.kpi-val.a{color:var(--amber);}
+.kpi-sub{font-size:.68rem;color:var(--text3);margin-top:.2rem;}
+.kpi-sub.up{color:var(--green);}
+.kpi-sub.dn{color:var(--red);}
+
+/* Dashboard grid */
+.dash-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 320px;
+  grid-template-rows:1fr 1fr;
+  gap:1px;background:var(--border);
+  flex:1;overflow:hidden;
+}
+.panel{
+  background:var(--bg2);overflow:hidden;display:flex;flex-direction:column;
+}
+.panel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.panel-title{font-size:.82rem;font-weight:700;color:var(--text);}
+.panel-sub{font-family:var(--mono);font-size:.6rem;color:var(--text3);}
+.panel-body{padding:1rem;flex:1;overflow:hidden;position:relative;}
+
+/* Chart containers */
+.chart-wrap{position:relative;width:100%;height:100%;}
+
+/* AI Panel */
+.ai-panel{grid-column:3;grid-row:1/3;border-left:1px solid var(--border);}
+.ai-panel .panel-body{padding:.75rem;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;}
+
+.ai-header{
+  background:var(--green-dim);border:1px solid var(--green3);
+  border-radius:var(--radius-sm);padding:.875rem;margin-bottom:.25rem;
+}
+.ai-header-title{font-size:.8rem;font-weight:700;color:var(--green);margin-bottom:.25rem;display:flex;align-items:center;gap:6px;}
+.ai-header-body{font-size:.75rem;color:#7ae8a8;line-height:1.55;}
+
+.ai-card{
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--radius-sm);padding:.875rem;
+}
+.ai-card-type{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem;}
+.ai-card-type.alert{color:var(--amber);}
+.ai-card-type.tip{color:var(--green);}
+.ai-card-type.info{color:var(--blue);}
+.ai-card-title{font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:.25rem;}
+.ai-card-body{font-size:.73rem;color:var(--text2);line-height:1.55;}
+.ai-card-action{
+  margin-top:.625rem;padding:.35rem .75rem;border-radius:100px;
+  font-size:.68rem;font-weight:700;background:var(--green-dim);
+  color:var(--green);border:1px solid var(--green3);cursor:pointer;
+  display:inline-block;transition:background .2s;
+}
+.ai-card-action:hover{background:rgba(0,232,122,.15);}
+
+/* Weather */
+.weather-row{display:flex;gap:.375rem;}
+.wd{
+  flex:1;background:var(--surface);border-radius:6px;padding:.5rem .3rem;
+  text-align:center;border:1px solid var(--border);transition:all .2s;
+}
+.wd.best{background:var(--green-dim);border-color:var(--green3);}
+.wd-day{font-family:var(--mono);font-size:.55rem;color:var(--text3);margin-bottom:.2rem;}
+.wd-ico{font-size:.95rem;margin-bottom:.2rem;}
+.wd-pct{font-size:.68rem;font-weight:700;color:var(--text2);}
+.wd.best .wd-pct{color:var(--green);}
+.wd-rec{font-size:.52rem;color:var(--green);margin-top:2px;}
+
+/* Accumulo */
+.acc-wrap{display:flex;flex-direction:column;gap:.5rem;}
+.acc-row{display:flex;align-items:center;gap:.625rem;}
+.acc-lbl{font-size:.72rem;color:var(--text3);width:90px;flex-shrink:0;}
+.acc-track{flex:1;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;}
+.acc-fill{height:100%;border-radius:3px;transition:width 1s ease;}
+.acc-pct{font-family:var(--mono);font-size:.65rem;color:var(--text2);width:32px;text-align:right;}
+
+/* POD breakdown */
+.pod-breakdown{display:flex;flex-direction:column;gap:.4rem;overflow-y:auto;max-height:100%;}
+.pod-row{
+  display:flex;align-items:center;gap:.625rem;padding:.4rem .5rem;
+  border-radius:6px;border:1px solid var(--border);background:var(--bg3);
+  font-size:.75rem;cursor:pointer;transition:border-color .2s;
+}
+.pod-row:hover{border-color:var(--green3);}
+.pod-row-id{font-family:var(--mono);color:var(--text3);width:90px;flex-shrink:0;font-size:.65rem;}
+.pod-row-bar-wrap{flex:1;height:4px;background:var(--surface);border-radius:2px;}
+.pod-row-bar{height:100%;background:var(--green);border-radius:2px;}
+.pod-row-val{font-weight:700;color:var(--text);width:55px;text-align:right;}
+.pod-row-save{color:var(--green);font-size:.65rem;width:45px;text-align:right;}
+
+/* Notifica slide */
+.notif-stack{position:fixed;bottom:1rem;right:1rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;max-width:320px;}
+.notif{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
+  padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;
+  box-shadow:0 8px 24px rgba(0,0,0,.6);
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.notif-ico{font-size:1.1rem;flex-shrink:0;}
+.notif-title{font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:2px;}
+.notif-body{font-size:.72rem;color:var(--text2);line-height:1.45;}
+.notif-close{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;flex-shrink:0;line-height:1;}
+
+/* Member view */
+#screen-member{flex:1;display:none;overflow-y:auto;padding:1.5rem;}
+#screen-member.active{display:block;}
+.member-grid{display:grid;grid-template-columns:2fr 1fr;gap:1.25rem;max-width:1000px;margin:0 auto;}
+.member-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.25rem;max-width:1000px;margin-left:auto;margin-right:auto;}
+.m-kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:1.25rem;}
+.m-kpi-lbl{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.35rem;}
+.m-kpi-val{font-size:2rem;font-weight:800;color:var(--text);}
+.m-kpi-val.g{color:var(--green);}
+.m-kpi-sub{font-size:.72rem;color:var(--text3);margin-top:.2rem;}
+
+.member-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:1.25rem;}
+.mc-title{font-size:.88rem;font-weight:700;margin-bottom:1rem;}
+
+/* Source bars */
+.src-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.625rem;}
+.src-lbl{font-size:.75rem;color:var(--text2);width:100px;}
+.src-bar-wrap{flex:1;height:6px;background:var(--surface);border-radius:3px;}
+.src-bar-fill{height:100%;border-radius:3px;}
+.src-pct{font-family:var(--mono);font-size:.68rem;color:var(--text);width:30px;text-align:right;}
+
+/* Manager view */
+#screen-manager{flex:1;display:none;overflow-y:auto;padding:1.5rem;}
+#screen-manager.active{display:block;}
+.mgr-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;max-width:1100px;margin:0 auto;}
+.mgr-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:1.25rem;}
+.mgr-card-title{font-size:.88rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;}
+.export-btn{
+  font-size:.68rem;font-weight:700;padding:.25rem .75rem;border-radius:100px;
+  background:var(--surface);color:var(--text2);border:1px solid var(--border2);
+  cursor:pointer;transition:all .2s;
+}
+.export-btn:hover{border-color:var(--green);color:var(--green);}
+.mgr-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.mgr-table th{text-align:left;padding:.35rem .5rem;color:var(--text3);font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;border-bottom:1px solid var(--border);}
+.mgr-table td{padding:.45rem .5rem;border-bottom:1px solid var(--border);color:var(--text2);}
+.mgr-table td.hi{color:var(--text);font-weight:600;}
+.mgr-table td.g{color:var(--green);}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* Responsive */
+@media(max-width:900px){
+  .dash-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto;}
+  .ai-panel{grid-column:1/3;grid-row:3;}
+  .kpi-row{grid-template-columns:repeat(3,1fr);}
+  .member-grid{grid-template-columns:1fr;}
+  .mgr-grid{grid-template-columns:1fr;}
+  .sidebar{width:180px;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo"><span class="logo-dot"></span>Luce Comune</div>
+  <div class="topbar-center" id="mainTabs" style="display:none">
+    <button class="tab-btn active" onclick="switchView('dashboard',this)">📊 Dashboard CER</button>
+    <button class="tab-btn" onclick="switchView('member',this)">👤 Vista Membro</button>
+    <button class="tab-btn" onclick="switchView('manager',this)">⚙️ Pannello Gestore</button>
+  </div>
+  <div class="topbar-right">
+    <div class="cer-badge" id="cerBadge" style="display:none">CER Parma Est · Attiva</div>
+    <button class="upload-btn-top" onclick="resetToUpload()" id="newFileBtn" style="display:none">+ Nuovo file</button>
+  </div>
+</div>
+
+<div class="app-body">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar" style="display:none">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigazione</div>
+      <div class="nav-item active" onclick="switchView('dashboard',null)"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="nav-item" onclick="switchView('member',null)"><span class="nav-icon">👤</span>Vista Membro</div>
+      <div class="nav-item" onclick="switchView('manager',null)"><span class="nav-icon">⚙️</span>Gestore</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">POD Attivi</div>
+      <div class="pod-list" id="podList"></div>
+    </div>
+    <div class="sidebar-section" style="margin-top:auto">
+      <div class="sidebar-label">File caricato</div>
+      <div id="fileInfo" style="font-family:var(--mono);font-size:.62rem;color:var(--text3);line-height:1.6;"></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainContent">
+
+    <!-- UPLOAD SCREEN -->
+    <div id="screen-upload">
+      <div class="upload-area">
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+          ondragover="handleDrag(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title">Carica i tuoi dati GSE</div>
+          <div class="upload-sub">Trascina qui il file Excel o CSV esportato dal portale GSE.<br>Il sistema lo analizza automaticamente e genera la dashboard.</div>
+          <div class="upload-formats">
+            <span class="fmt-tag">.csv</span>
+            <span class="fmt-tag">.xlsx (prossimamente)</span>
+            <span class="fmt-tag">Formato GSE standard</span>
+            <span class="fmt-tag">Formato libero</span>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)">
+        <div class="or-divider">— oppure —</div>
+        <button class="demo-btn" onclick="loadDemoData()">▶ Carica dati demo (CER Parma Est)</button>
+        <br><br>
+        <div class="upload-info">
+          <div class="ui-card"><div class="ui-card-icon">🔒</div><div class="ui-card-title">100% Locale</div><div class="ui-card-body">I tuoi dati non lasciano mai il browser. Zero cloud, zero storage esterno.</div></div>
+          <div class="ui-card"><div class="ui-card-icon">⚡</div><div class="ui-card-title">Analisi istantanea</div><div class="ui-card-body">Parser automatico GSE. Da Excel grezzo a dashboard in meno di 3 secondi.</div></div>
+          <div class="ui-card"><div class="ui-card-icon">🤖</div><div class="ui-card-title">AI integrata</div><div class="ui-card-body">Suggerimenti automatici su consumi, accumuli e picchi di domanda.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROCESSING -->
+    <div id="screen-processing" style="display:none">
+      <div class="proc-title">Analisi dati in corso…</div>
+      <div class="proc-sub" id="procSubtitle">Lettura del file</div>
+      <div class="proc-steps" id="procSteps">
+        <div class="proc-step pending" id="ps1"><div class="proc-step-icon">1</div><span>Lettura e parsing CSV/Excel</span></div>
+        <div class="proc-step pending" id="ps2"><div class="proc-step-icon">2</div><span>Normalizzazione dati per POD</span></div>
+        <div class="proc-step pending" id="ps3"><div class="proc-step-icon">3</div><span>Calcolo KPI energetici</span></div>
+        <div class="proc-step pending" id="ps4"><div class="proc-step-icon">4</div><span>Generazione suggerimenti AI</span></div>
+        <div class="proc-step pending" id="ps5"><div class="proc-step-icon">5</div><span>Preparazione dashboard</span></div>
+      </div>
+      <div class="proc-bar-wrap"><div class="proc-bar" id="procBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="screen-dashboard">
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Produzione totale CER</div><div class="kpi-val g" id="k-prod">—</div><div class="kpi-sub" id="k-prod-sub"></div></div>
+        <div class="kpi"><div class="kpi-label">Consumo totale</div><div class="kpi-val" id="k-cons">—</div><div class="kpi-sub" id="k-cons-sub"></div></div>
+        <div class="kpi"><div class="kpi-label">Autoconsumo</div><div class="kpi-val g" id="k-auto">—</div><div class="kpi-sub up" id="k-auto-sub"></div></div>
+        <div class="kpi"><div class="kpi-label">Risparmio stimato</div><div class="kpi-val a" id="k-save">—</div><div class="kpi-sub" id="k-save-sub"></div></div>
+        <div class="kpi"><div class="kpi-label">POD attivi</div><div class="kpi-val" id="k-pod">—</div><div class="kpi-sub" id="k-pod-sub"></div></div>
+      </div>
+
+      <!-- Grid panels -->
+      <div class="dash-grid">
+        <!-- Produzione vs Consumo -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Produzione vs Consumo</div>
+            <div class="panel-sub" id="chart1-sub">kWh per ora</div>
+          </div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="chartMain"></canvas></div></div>
+        </div>
+
+        <!-- POD breakdown -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Distribuzione per POD</div>
+            <div class="panel-sub">consumo individuale</div>
+          </div>
+          <div class="panel-body"><div class="pod-breakdown" id="podBreakdown"></div></div>
+        </div>
+
+        <!-- AI Panel -->
+        <div class="panel ai-panel">
+          <div class="panel-header">
+            <div class="panel-title">🤖 AI Suggerimenti</div>
+            <div class="panel-sub">aggiornato ora</div>
+          </div>
+          <div class="panel-body" id="aiPanelBody">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+        <!-- Andamento settimanale -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Andamento settimanale</div>
+            <div class="panel-sub">ultimi 7 giorni</div>
+          </div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="chartWeekly"></canvas></div></div>
+        </div>
+
+        <!-- Fonti energia -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Origini energia</div>
+            <div class="panel-sub">% del consumo totale</div>
+          </div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="chartSource"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEMBER VIEW -->
+    <div id="screen-member">
+      <div class="member-kpi-row">
+        <div class="m-kpi"><div class="m-kpi-lbl">Il mio consumo</div><div class="m-kpi-val" id="m-cons">—</div><div class="m-kpi-sub">questo mese</div></div>
+        <div class="m-kpi"><div class="m-kpi-lbl">Da energia CER</div><div class="m-kpi-val g" id="m-cer">—</div><div class="m-kpi-sub">% autoconsumo locale</div></div>
+        <div class="m-kpi"><div class="m-kpi-lbl">Risparmio stimato</div><div class="m-kpi-val g" id="m-save">—</div><div class="m-kpi-sub">vs tariffa standard</div></div>
+      </div>
+      <div class="member-grid">
+        <div class="member-card">
+          <div class="mc-title">Il mio profilo di consumo</div>
+          <div style="height:200px;position:relative"><canvas id="chartMember"></canvas></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.875rem">
+          <div class="member-card">
+            <div class="mc-title">Da dove viene la mia energia</div>
+            <div class="acc-wrap" id="memberSources">
+              <div class="src-row"><div class="src-lbl">CER locale</div><div class="src-bar-wrap"><div class="src-bar-fill" id="s-cer" style="background:var(--green)"></div></div><div class="src-pct" id="sp-cer">—</div></div>
+              <div class="src-row"><div class="src-lbl">Rete nazionale</div><div class="src-bar-wrap"><div class="src-bar-fill" id="s-grid" style="background:var(--text3)"></div></div><div class="src-pct" id="sp-grid">—</div></div>
+              <div class="src-row"><div class="src-lbl">Accumulo</div><div class="src-bar-wrap"><div class="src-bar-fill" id="s-bat" style="background:var(--blue)"></div></div><div class="src-pct" id="sp-bat">—</div></div>
+            </div>
+          </div>
+          <div class="member-card">
+            <div class="mc-title">⚡ Suggerimento AI</div>
+            <div id="memberTip" style="font-size:.82rem;color:var(--text2);line-height:1.65;"></div>
+          </div>
+          <div class="member-card" style="background:var(--green-dim);border-color:var(--green3)">
+            <div class="mc-title" style="color:var(--green)">🌤 Previsione meteo</div>
+            <div class="weather-row" id="memberWeather"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANAGER VIEW -->
+    <div id="screen-manager">
+      <div class="mgr-grid" style="max-width:1100px;margin:0 auto">
+        <div class="mgr-card" style="grid-column:1/3">
+          <div class="mgr-card-title">
+            <span>📋 Report GSE — Riepilogo incentivi</span>
+            <button class="export-btn" onclick="exportCSV()">⬇ Esporta CSV GSE</button>
+          </div>
+          <table class="mgr-table" id="mgrTable">
+            <thead><tr><th>POD</th><th>Produzione (kWh)</th><th>Consumo (kWh)</th><th>Autoconsumo</th><th>Incentivo stimato</th><th>Risparmio</th></tr></thead>
+            <tbody id="mgrTableBody"></tbody>
+          </table>
+        </div>
+        <div class="mgr-card">
+          <div class="mgr-card-title">Ottimizzazione accumuli</div>
+          <div class="acc-wrap" id="mgrAccumulo">
+            <div class="acc-row"><div class="acc-lbl">Carica batteria</div><div class="acc-track"><div class="acc-fill" id="bat-fill" style="background:var(--green)"></div></div><div class="acc-pct" id="bat-pct">—</div></div>
+            <div class="acc-row"><div class="acc-lbl">Picchi evitati</div><div class="acc-track"><div class="acc-fill" id="peak-fill" style="background:var(--blue)"></div></div><div class="acc-pct" id="peak-pct">—</div></div>
+            <div class="acc-row"><div class="acc-lbl">CO₂ evitata</div><div class="acc-track"><div class="acc-fill" id="co2-fill" style="background:var(--green2)"></div></div><div class="acc-pct" id="co2-pct">—</div></div>
+            <div class="acc-row"><div class="acc-lbl">Efficienza CER</div><div class="acc-track"><div class="acc-fill" id="eff-fill" style="background:var(--amber)"></div></div><div class="acc-pct" id="eff-pct">—</div></div>
+          </div>
+          <div id="mgrAiRec" style="margin-top:1rem;padding:.75rem;background:var(--green-dim);border:1px solid var(--green3);border-radius:8px;font-size:.78rem;color:#7ae8a8;line-height:1.55;"></div>
+        </div>
+        <div class="mgr-card">
+          <div class="mgr-card-title">Andamento mensile</div>
+          <div style="height:220px;position:relative"><canvas id="chartManager"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app-body -->
+
+<!-- Notifications -->
+<div class="notif-stack" id="notifStack"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let appData = null;
+let charts = {};
+
+// ══════════════════════════════════════════
+//  DEMO DATA GENERATOR
+// ══════════════════════════════════════════
+function generateDemoData() {
+  const pods = [
+    'IT001E00012345','IT001E00023456','IT001E00034567',
+    'IT001E00045678','IT001E00056789','IT001E00067890',
+    'IT001E00078901','IT001E00089012'
+  ];
+  const names = ['Marco Rossi','Giulia Bianchi','Antonio Ferrari','Sara Conti','Paolo Mazza','Elena Ricci','Luca Bruno','Marta Verde'];
+  const hours = Array.from({length:24},(_,i)=>i);
+  // Solar production curve (0 at night, peaks at 13:00)
+  const solarCurve = hours.map(h => {
+    if(h<6||h>20) return 0;
+    const peak = Math.sin(((h-6)/14)*Math.PI);
+    return Math.max(0, peak * (1.2 + Math.random()*.3));
+  });
+  const days = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const weeklyProd = [142,198,176,88,210,185,165];
+  const weeklyCons = [110,125,118,140,98,80,105];
+
+  const podData = pods.map((pod,i) => {
+    const baseCons = 80 + Math.random()*80;
+    const cons = hours.map(h => {
+      const morning = (h>=7&&h<=9) ? 1.8 : 1;
+      const evening = (h>=18&&h<=22) ? 2.2 : 1;
+      return Math.max(0, (baseCons/24) * morning * evening * (0.8+Math.random()*.4));
+    });
+    const totalCons = cons.reduce((a,b)=>a+b,0);
+    const totalProd = solarCurve.reduce((a,b)=>a+b,0) / pods.length;
+    const autocons = Math.min(totalCons, totalProd);
+    return {
+      id: pod, name: names[i],
+      hourly: cons,
+      totalCons: Math.round(totalCons*10)/10,
+      totalProd: Math.round(totalProd*10)/10,
+      autocons: Math.round(autocons*10)/10,
+      autoconsRatio: Math.round((autocons/totalCons)*100),
+      savings: Math.round(autocons * 0.12 * 10)/10,
+      incentive: Math.round(autocons * 0.11 * 100)/100
+    };
+  });
+
+  const totalProd = solarCurve.map(v=>v*pods.length);
+  const totalCons = hours.map((_,h) => podData.reduce((a,p)=>a+p.hourly[h],0));
+  const sumProd = totalProd.reduce((a,b)=>a+b,0);
+  const sumCons = totalCons.reduce((a,b)=>a+b,0);
+  const autocons = Math.min(sumProd, sumCons);
+  const autoconsRatio = Math.round((autocons/sumCons)*100);
+
+  return {
+    fileName: 'CER_Parma_Est_export.csv',
+    rows: pods.length * 24,
+    pods: podData,
+    hourly: { labels: hours.map(h=>h+':00'), prod: totalProd.map(v=>Math.round(v*100)/100), cons: totalCons.map(v=>Math.round(v*100)/100) },
+    weekly: { labels: days, prod: weeklyProd, cons: weeklyCons },
+    summary: {
+      totalProd: Math.round(sumProd*10)/10,
+      totalCons: Math.round(sumCons*10)/10,
+      autocons: Math.round(autocons*10)/10,
+      autoconsRatio,
+      savings: Math.round(autocons*0.12*10)/10,
+      totalSavings: Math.round(podData.reduce((a,p)=>a+p.savings,0)*10)/10,
+      podCount: pods.length,
+      cerPct: autoconsRatio,
+      gridPct: Math.round((100-autoconsRatio)*0.6),
+      batPct: Math.round((100-autoconsRatio)*0.4),
+    },
+    weather: [
+      {day:'LUN',ico:'☁️',pct:28,rec:false},
+      {day:'MAR',ico:'☀️',pct:94,rec:true},
+      {day:'MER',ico:'☀️',pct:89,rec:true},
+      {day:'GIO',ico:'⛅',pct:62,rec:false},
+      {day:'VEN',ico:'🌧',pct:15,rec:false},
+      {day:'SAB',ico:'⛅',pct:55,rec:false},
+      {day:'DOM',ico:'☀️',pct:88,rec:false},
+    ]
+  };
+}
+
+// ══════════════════════════════════════════
+//  CSV PARSER
+// ══════════════════════════════════════════
+function parseCSV(csvText) {
+  const result = Papa.parse(csvText, {header:true, skipEmptyLines:true, dynamicTyping:true});
+  const rows = result.data;
+  if(!rows.length) return null;
+  const cols = Object.keys(rows[0]);
+
+  // Try to detect columns
+  const findCol = (...names) => cols.find(c => names.some(n => c.toLowerCase().includes(n.toLowerCase()))) || cols[0];
+  const podCol  = findCol('POD','pod','codice','code','utenza');
+  const prodCol = findCol('produzione','prod','immessa','production','energia_immessa');
+  const consCol = findCol('consumo','cons','prelevata','consumption','energia_prelevata');
+  const hourCol = findCol('ora','hour','fascia','periodo','time');
+
+  // Group by POD
+  const byPod = {};
+  rows.forEach(r => {
+    const pod = String(r[podCol] || 'POD-'+Math.random().toString(36).slice(2,7));
+    if(!byPod[pod]) byPod[pod] = [];
+    byPod[pod].push(r);
+  });
+
+  const podIds = Object.keys(byPod).slice(0,12);
+  const names = ['Marco R.','Giulia B.','Antonio F.','Sara C.','Paolo M.','Elena R.','Luca B.','Marta V.','Carlo N.','Anna P.','Giorgio L.','Franca M.'];
+
+  const pods = podIds.map((id,i) => {
+    const recs = byPod[id];
+    const cons = recs.reduce((a,r) => a + Math.abs(parseFloat(r[consCol])||0), 0);
+    const prod = recs.reduce((a,r) => a + Math.abs(parseFloat(r[prodCol])||0), 0);
+    const auto = Math.min(cons, prod);
+    return {
+      id, name: names[i] || 'Membro '+(i+1),
+      hourly: Array(24).fill(0).map((_,h) => cons/24*(0.8+Math.random()*.4)),
+      totalCons: Math.round(cons*10)/10,
+      totalProd: Math.round(prod*10)/10,
+      autocons:  Math.round(auto*10)/10,
+      autoconsRatio: cons>0 ? Math.round((auto/cons)*100) : 0,
+      savings:   Math.round(auto*0.12*10)/10,
+      incentive: Math.round(auto*0.11*100)/100
+    };
+  });
+
+  const sumProd = pods.reduce((a,p)=>a+p.totalProd,0);
+  const sumCons = pods.reduce((a,p)=>a+p.totalCons,0);
+  const autocons = Math.min(sumProd, sumCons);
+  const autoconsRatio = sumCons>0 ? Math.round((autocons/sumCons)*100) : 0;
+
+  const hours = Array.from({length:24},(_,h)=>h);
+  const solarCurve = hours.map(h => {
+    if(h<6||h>20) return 0;
+    return Math.max(0, Math.sin(((h-6)/14)*Math.PI)*(sumProd/14));
+  });
+
+  return {
+    fileName: 'file_caricato.csv',
+    rows: rows.length,
+    pods,
+    hourly: {
+      labels: hours.map(h=>h+':00'),
+      prod: solarCurve.map(v=>Math.round(v*10)/10),
+      cons: hours.map(h => pods.reduce((a,p)=>a+p.hourly[h],0)).map(v=>Math.round(v*10)/10)
+    },
+    weekly: {
+      labels:['Lun','Mar','Mer','Gio','Ven','Sab','Dom'],
+      prod:[142,198,176,88,210,185,165].map(v=>Math.round(v*sumProd/1200)),
+      cons:[110,125,118,140,98,80,105].map(v=>Math.round(v*sumCons/800))
+    },
+    summary: {
+      totalProd: Math.round(sumProd*10)/10,
+      totalCons: Math.round(sumCons*10)/10,
+      autocons:  Math.round(autocons*10)/10,
+      autoconsRatio,
+      savings:   Math.round(autocons*0.12*10)/10,
+      totalSavings: Math.round(pods.reduce((a,p)=>a+p.savings,0)*10)/10,
+      podCount:  pods.length,
+      cerPct:    autoconsRatio,
+      gridPct:   Math.round((100-autoconsRatio)*0.6),
+      batPct:    Math.round((100-autoconsRatio)*0.4),
+    },
+    weather:[
+      {day:'LUN',ico:'☁️',pct:28,rec:false},{day:'MAR',ico:'☀️',pct:94,rec:true},
+      {day:'MER',ico:'☀️',pct:89,rec:true},{day:'GIO',ico:'⛅',pct:62,rec:false},
+      {day:'VEN',ico:'🌧',pct:15,rec:false},{day:'SAB',ico:'⛅',pct:55,rec:false},
+      {day:'DOM',ico:'☀️',pct:88,rec:false}
+    ]
+  };
+}
+
+// ══════════════════════════════════════════
+//  FILE HANDLING
+// ══════════════════════════════════════════
+function handleDrag(e){ e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
+function handleDragLeave(){ document.getElementById('uploadZone').classList.remove('dragover'); }
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if(f) processFile(f);
+}
+function handleFileSelect(e){ const f = e.target.files[0]; if(f) processFile(f); }
+
+function processFile(file){
+  show('processing');
+  runProcessing(() => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const data = parseCSV(ev.target.result);
+      if(data){ data.fileName = file.name; launchDashboard(data); }
+      else { alert('Formato non riconosciuto. Prova con i dati demo.'); show('upload'); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function loadDemoData(){
+  show('processing');
+  runProcessing(() => { launchDashboard(generateDemoData()); });
+}
+
+function runProcessing(callback){
+  const steps = ['ps1','ps2','ps3','ps4','ps5'];
+  const pcts  = [20,40,60,80,100];
+  const labels= ['Lettura file','Normalizzazione POD','Calcolo KPI','Generazione AI','Dashboard pronta'];
+  let i = 0;
+  function next(){
+    if(i>0){ const s=document.getElementById(steps[i-1]); s.className='proc-step done'; s.querySelector('.proc-step-icon').textContent='✓'; }
+    if(i<steps.length){
+      const s=document.getElementById(steps[i]);
+      s.className='proc-step running';
+      document.getElementById('procSubtitle').textContent=labels[i];
+      document.getElementById('procBar').style.width=pcts[i]+'%';
+      i++;
+      setTimeout(next, i===steps.length?300:400);
+    } else { callback(); }
+  }
+  // reset
+  steps.forEach(id=>{ const s=document.getElementById(id); s.className='proc-step pending'; s.querySelector('.proc-step-icon').textContent=steps.indexOf(id)+1; });
+  document.getElementById('procBar').style.width='0%';
+  setTimeout(next, 300);
+}
+
+// ══════════════════════════════════════════
+//  LAUNCH DASHBOARD
+// ══════════════════════════════════════════
+function launchDashboard(data){
+  appData = data;
+  // Show UI chrome
+  document.getElementById('sidebar').style.display='flex';
+  document.getElementById('mainTabs').style.display='flex';
+  document.getElementById('cerBadge').style.display='flex';
+  document.getElementById('newFileBtn').style.display='block';
+  document.getElementById('fileInfo').textContent = data.fileName+'\n'+data.rows+' righe · '+data.pods.length+' POD';
+  // POD list
+  const pl = document.getElementById('podList');
+  pl.innerHTML = data.pods.slice(0,8).map((p,i)=>`
+    <div class="pod-item${i===0?' active':''}" onclick="selectPod(${i},this)">
+      <span>${p.id.slice(-6)}</span>
+      <span class="pod-kwh">${p.totalCons} kWh</span>
+    </div>`).join('');
+  show('dashboard');
+  renderDashboard();
+  renderMember(0);
+  renderManager();
+  scheduleNotifications();
+}
+
+// ══════════════════════════════════════════
+//  RENDER DASHBOARD
+// ══════════════════════════════════════════
+function renderDashboard(){
+  const d = appData; const s = d.summary;
+  // KPIs
+  setText('k-prod', fmt(s.totalProd)+' kWh'); setText('k-prod-sub','produzione CER oggi');
+  setText('k-cons', fmt(s.totalCons)+' kWh'); setText('k-cons-sub','consumo totale comunità');
+  setText('k-auto', s.autoconsRatio+'%');      setText('k-auto-sub','autoconsumo locale ↑');
+  setText('k-save', '€ '+fmt(s.totalSavings)); setText('k-save-sub','vs tariffa standard');
+  setText('k-pod',  s.podCount+'');            setText('k-pod-sub','utenze connesse');
+
+  // Chart: Produzione vs Consumo
+  destroyChart('chartMain');
+  const ctx1 = document.getElementById('chartMain').getContext('2d');
+  charts.main = new Chart(ctx1,{
+    type:'bar',
+    data:{
+      labels: d.hourly.labels,
+      datasets:[
+        {label:'Produzione CER',data:d.hourly.prod,backgroundColor:'rgba(0,232,122,0.7)',borderRadius:3,order:2},
+        {label:'Consumo',data:d.hourly.cons,backgroundColor:'rgba(77,159,255,0.5)',borderRadius:3,order:1}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a9688',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#3d5448',font:{size:10}},grid:{color:'rgba(255,255,255,0.03)'}},
+              y:{ticks:{color:'#3d5448',font:{size:10},callback:v=>v+'kW'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+
+  // Chart: Weekly
+  destroyChart('chartWeekly');
+  const ctx2 = document.getElementById('chartWeekly').getContext('2d');
+  charts.weekly = new Chart(ctx2,{
+    type:'line',
+    data:{
+      labels:d.weekly.labels,
+      datasets:[
+        {label:'Produzione',data:d.weekly.prod,borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,0.08)',tension:.4,fill:true,pointBackgroundColor:'#00e87a',pointRadius:4},
+        {label:'Consumo',data:d.weekly.cons,borderColor:'#4d9fff',backgroundColor:'rgba(77,159,255,0.05)',tension:.4,fill:true,pointBackgroundColor:'#4d9fff',pointRadius:4}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a9688',font:{size:11}}}},
+      scales:{x:{ticks:{color:'#3d5448',font:{size:11}},grid:{color:'rgba(255,255,255,0.03)'}},
+              y:{ticks:{color:'#3d5448',font:{size:10},callback:v=>v+' kWh'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+
+  // Chart: Sources donut
+  destroyChart('chartSource');
+  const ctx3 = document.getElementById('chartSource').getContext('2d');
+  charts.source = new Chart(ctx3,{
+    type:'doughnut',
+    data:{
+      labels:['CER locale','Rete nazionale','Accumulo'],
+      datasets:[{data:[s.cerPct,s.gridPct,s.batPct],backgroundColor:['rgba(0,232,122,0.8)','rgba(61,84,72,0.8)','rgba(77,159,255,0.8)'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',
+      plugins:{legend:{position:'bottom',labels:{color:'#7a9688',font:{size:11},padding:12}}}}
+  });
+
+  // POD breakdown
+  const maxCons = Math.max(...appData.pods.map(p=>p.totalCons));
+  document.getElementById('podBreakdown').innerHTML = appData.pods.map(p=>`
+    <div class="pod-row">
+      <div class="pod-row-id">${p.id.slice(-8)}</div>
+      <div class="pod-row-bar-wrap"><div class="pod-row-bar" style="width:${Math.round((p.totalCons/maxCons)*100)}%"></div></div>
+      <div class="pod-row-val">${p.totalCons} kWh</div>
+      <div class="pod-row-save">€${p.savings}</div>
+    </div>`).join('');
+
+  // AI Panel
+  renderAIPanel();
+}
+
+function renderAIPanel(){
+  const s = appData.summary;
+  const autoconsRatio = s.autoconsRatio;
+  const bestDay = appData.weather.find(w=>w.rec);
+
+  const tips = [
+    autoconsRatio < 60 ? {type:'alert',title:'Autoconsumo sotto il 60%',body:`La CER consuma solo il ${autoconsRatio}% dell'energia prodotta localmente. Spostare i carichi pesanti nelle ore 12–15 potrebbe portarlo al 75%+.`,action:'Vedi suggerimento orario'} : {type:'tip',title:'Autoconsumo ottimale',body:`Il ${autoconsRatio}% dell'energia rimane nella comunità. Ottimo risultato — obiettivo 85% con ottimizzazione accumuli.`,action:'Dettagli'},
+    bestDay ? {type:'tip',title:`☀️ Caricare giovedì (${bestDay.day})`,body:`Previsione solare ${bestDay.pct}% — giornata ideale per caricare gli accumuli al massimo prima del weekend nuvoloso.`,action:'Applica alla batteria'} : {type:'info',title:'Meteo sfavorevole',body:'Settimana prevalentemente nuvolosa. Ottimizzare i consumi dagli accumuli già carichi.',action:'Piano consumi'},
+    {type:'info',title:'Picco serale evitabile',body:'La rete nazionale viene caricata alle 19–21. Scaricare il 30% dell\'accumulo in quell\'ora ridurrebbe i picchi del 38% e aumenterebbe l\'incentivo GSE.',action:'Programma scarica'},
+    {type:'tip',title:`€ ${fmt(s.totalSavings)} risparmiati`,body:`Risparmio collettivo stimato grazie all'autoconsumo. Con ottimizzazione AI completa si stima un +22% nei prossimi 30 giorni.`,action:'Proiezione'},
+  ];
+
+  const weatherHTML = `
+    <div style="margin-bottom:.5rem;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">Previsione solare 7 giorni</div>
+    <div class="weather-row">
+      ${appData.weather.map(w=>`<div class="wd${w.rec?' best':''}"><div class="wd-day">${w.day}</div><div class="wd-ico">${w.ico}</div><div class="wd-pct">${w.pct}%</div>${w.rec?'<div class="wd-rec">Carica</div>':''}</div>`).join('')}
+    </div>`;
+
+  const accPct = Math.round(s.autoconsRatio*0.9);
+  const accHTML = `
+    <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--text)">Stato accumuli CER</div>
+    <div class="acc-wrap">
+      <div class="acc-row"><div class="acc-lbl">Batteria CER</div><div class="acc-track"><div class="acc-fill" style="width:${accPct}%;background:var(--green)"></div></div><div class="acc-pct">${accPct}%</div></div>
+      <div class="acc-row"><div class="acc-lbl">Picchi evitati</div><div class="acc-track"><div class="acc-fill" style="width:62%;background:var(--blue)"></div></div><div class="acc-pct">62%</div></div>
+      <div class="acc-row"><div class="acc-lbl">CO₂ evitata</div><div class="acc-track"><div class="acc-fill" style="width:${Math.min(95,accPct+15)}%;background:var(--green2)"></div></div><div class="acc-pct">${Math.min(95,accPct+15)}%</div></div>
+    </div>`;
+
+  document.getElementById('aiPanelBody').innerHTML =
+    `<div class="ai-header"><div class="ai-header-title">🤖 Analisi completata</div><div class="ai-header-body">Analizzati ${appData.rows} record · ${appData.pods.length} POD · dati orari</div></div>`+
+    tips.map(t=>`<div class="ai-card"><div class="ai-card-type ${t.type}">${t.type==='alert'?'⚠ Attenzione':t.type==='tip'?'✓ Ottimizzazione':'ℹ Info'}</div><div class="ai-card-title">${t.title}</div><div class="ai-card-body">${t.body}</div><div class="ai-card-action" onclick="showNotif('${t.title}','${t.body}')">${t.action}</div></div>`).join('')+
+    `<div class="ai-card"><div class="ai-card-type info">📡 Previsione meteo</div>${weatherHTML}</div>`+
+    `<div class="ai-card">${accHTML}</div>`;
+}
+
+// ══════════════════════════════════════════
+//  MEMBER VIEW
+// ══════════════════════════════════════════
+function renderMember(podIdx){
+  const pod = appData.pods[podIdx] || appData.pods[0];
+  const s = appData.summary;
+  setText('m-cons', fmt(pod.totalCons)+' kWh');
+  setText('m-cer', pod.autoconsRatio+'%');
+  setText('m-save','€ '+fmt(pod.savings));
+
+  // Source bars
+  const cerW = s.cerPct; const gridW = s.gridPct; const batW = s.batPct;
+  setStyle('s-cer','width',cerW+'%'); setText('sp-cer',cerW+'%');
+  setStyle('s-grid','width',gridW+'%'); setText('sp-grid',gridW+'%');
+  setStyle('s-bat','width',batW+'%'); setText('sp-bat',batW+'%');
+
+  // Member tip
+  const tips = [
+    `Questo mese hai consumato durante le ore di picco. Spostare lavatrice e lavastoviglie nelle ore 12–15 ti farebbe risparmiare altri € ${Math.round(pod.savings*.3*10)/10}.`,
+    `La tua energia viene per il ${cerW}% dalla CER locale. Eccellente! L'obiettivo è superare l'80% il prossimo mese.`,
+    `Martedì e mercoledì sono giornate soleggiate — produzione stimata 94%. Ideale per i carichi pesanti.`
+  ];
+  setText('memberTip', tips[podIdx % tips.length]);
+
+  // Weather
+  document.getElementById('memberWeather').innerHTML = appData.weather.map(w=>
+    `<div class="wd${w.rec?' best':''}"><div class="wd-day">${w.day}</div><div class="wd-ico">${w.ico}</div><div class="wd-pct">${w.pct}%</div>${w.rec?'<div class="wd-rec">Ottimale</div>':''}</div>`).join('');
+
+  // Member chart
+  destroyChart('chartMember');
+  const ctx = document.getElementById('chartMember').getContext('2d');
+  charts.member = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:appData.hourly.labels,
+      datasets:[
+        {label:'Il mio consumo',data:pod.hourly.map(v=>Math.round(v*100)/100),borderColor:'#4d9fff',backgroundColor:'rgba(77,159,255,0.08)',tension:.4,fill:true,pointRadius:0},
+        {label:'Produzione CER',data:appData.hourly.prod.map(v=>Math.round(v/appData.pods.length*100)/100),borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,0.06)',tension:.4,fill:true,pointRadius:0}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a9688',font:{size:10}}}},
+      scales:{x:{ticks:{color:'#3d5448',font:{size:9},maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.03)'}},
+              y:{ticks:{color:'#3d5448',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+function selectPod(i, el){
+  document.querySelectorAll('.pod-item').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderMember(i);
+}
+
+// ══════════════════════════════════════════
+//  MANAGER VIEW
+// ══════════════════════════════════════════
+function renderManager(){
+  const d = appData; const s = d.summary;
+  // Table
+  document.getElementById('mgrTableBody').innerHTML = d.pods.map(p=>`
+    <tr>
+      <td class="hi">${p.id}</td>
+      <td>${p.totalProd}</td>
+      <td>${p.totalCons}</td>
+      <td class="g">${p.autoconsRatio}%</td>
+      <td class="g">€ ${p.incentive}</td>
+      <td class="g">€ ${p.savings}</td>
+    </tr>`).join('');
+
+  // Accumulo
+  const ap = Math.round(s.autoconsRatio*0.9);
+  setStyle('bat-fill','width',ap+'%'); setText('bat-pct',ap+'%');
+  setStyle('peak-fill','width','62%'); setText('peak-pct','62%');
+  setStyle('co2-fill','width',Math.min(95,ap+15)+'%'); setText('co2-pct',Math.min(95,ap+15)+'%');
+  setStyle('eff-fill','width',s.autoconsRatio+'%'); setText('eff-pct',s.autoconsRatio+'%');
+
+  const bestDay = d.weather.find(w=>w.rec);
+  setText('mgrAiRec', bestDay
+    ? `AI: Programmare carica massima ${bestDay.day} 11:00–15:00 (☀️ ${bestDay.pct}%). Picco rete stimato ridotto del 38%. Incentivo GSE ottimizzato.`
+    : 'AI: Settimana nuvolosa — ottimizzare scarica accumuli nelle fasce serali 19:00–21:00.');
+
+  // Manager chart
+  destroyChart('chartManager');
+  const ctx = document.getElementById('chartManager').getContext('2d');
+  charts.manager = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:d.weekly.labels,
+      datasets:[
+        {label:'Produzione',data:d.weekly.prod,backgroundColor:'rgba(0,232,122,0.7)',borderRadius:3},
+        {label:'Consumo',data:d.weekly.cons,backgroundColor:'rgba(77,159,255,0.5)',borderRadius:3}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a9688',font:{size:10}}}},
+      scales:{x:{ticks:{color:'#3d5448',font:{size:11}},grid:{color:'rgba(255,255,255,0.03)'}},
+              y:{ticks:{color:'#3d5448',font:{size:10},callback:v=>v+' kWh'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+function exportCSV(){
+  if(!appData) return;
+  const rows = ['POD,Produzione (kWh),Consumo (kWh),Autoconsumo (%),Incentivo (€),Risparmio (€)'];
+  appData.pods.forEach(p=>rows.push(`${p.id},${p.totalProd},${p.totalCons},${p.autoconsRatio},${p.incentive},${p.savings}`));
+  const blob = new Blob([rows.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='report_GSE_lucecomune.csv'; a.click();
+}
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+function switchView(view, btn){
+  document.querySelectorAll('.tab-btn,.nav-item').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['dashboard','member','manager'].forEach(v=>{
+    const el = document.getElementById('screen-'+v);
+    el.style.display = v===view ? 'flex' : 'none';
+    if(v==='member'||v==='manager') el.style.display = v===view ? 'block' : 'none';
+    if(v==='dashboard'&&view==='dashboard') el.classList.add('active');
+    else if(v==='dashboard') el.classList.remove('active');
+  });
+}
+
+function show(screen){
+  const screens = ['upload','processing','dashboard','member','manager'];
+  screens.forEach(s=>{
+    const el = document.getElementById('screen-'+s);
+    if(!el) return;
+    if(s===screen){ el.style.display='flex'; if(s==='dashboard') el.classList.add('active'); }
+    else { el.style.display='none'; el.classList && el.classList.remove('active'); }
+  });
+}
+
+function resetToUpload(){
+  document.getElementById('sidebar').style.display='none';
+  document.getElementById('mainTabs').style.display='none';
+  document.getElementById('cerBadge').style.display='none';
+  document.getElementById('newFileBtn').style.display='none';
+  document.getElementById('fileInput').value='';
+  appData = null;
+  Object.values(charts).forEach(c=>{ try{c.destroy();}catch(e){} });
+  charts = {};
+  show('upload');
+}
+
+// ══════════════════════════════════════════
+//  NOTIFICATIONS
+// ══════════════════════════════════════════
+function showNotif(title, body){
+  const stack = document.getElementById('notifStack');
+  const n = document.createElement('div');
+  n.className='notif';
+  n.innerHTML=`<div class="notif-ico">⚡</div><div><div class="notif-title">${title}</div><div class="notif-body">${body}</div></div><button class="notif-close" onclick="this.parentElement.remove()">×</button>`;
+  stack.appendChild(n);
+  setTimeout(()=>{ if(n.parentElement) n.remove(); }, 6000);
+}
+
+function scheduleNotifications(){
+  const msgs = [
+    ['⚡ Picco produzione rilevato','La CER sta producendo il 140% del fabbisogno. Ora è il momento ideale per usare i carichi pesanti.'],
+    ['🔋 Accumulo ottimizzato','AI ha programmato la carica per domani 13:00–15:00 (previsione ☀️ 94%).'],
+    ['💰 Risparmio aggiornato',`La comunità ha risparmiato € ${appData?.summary.totalSavings || 22} questo mese.`],
+  ];
+  msgs.forEach(([t,b],i) => setTimeout(()=>showNotif(t,b), (i+1)*3500));
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function fmt(n){ return Number(n).toLocaleString('it-IT'); }
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function setStyle(id,prop,val){ const el=document.getElementById(id); if(el) el.style[prop]=val; }
+function destroyChart(id){ if(charts[id]){ try{charts[id].destroy();}catch(e){} delete charts[id]; } }
+</script>
+</body>
+</html>
